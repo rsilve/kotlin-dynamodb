@@ -1,9 +1,13 @@
 package features.explorer.actions
 
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.Button
+import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.Text
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import model.tableItemGenerator
 import services.Client
@@ -22,8 +26,10 @@ fun insertBatch(size: Int, client: Client) {
         }
     }
 
-    Box {
-        Button(enabled = !running, onClick = {
+    Button(
+        modifier = Modifier.width(180.dp),
+        enabled = !running,
+        onClick = {
             run {
                 val timeMillis = measureTimeMillis {
                     val sequence = generateSequence { tableItemGenerator() }.take(size)
@@ -32,7 +38,16 @@ fun insertBatch(size: Int, client: Client) {
                 println(timeMillis)
             }
         }) {
+        if (running) {
+            CircularProgressIndicator(
+                Modifier.size(16.dp),
+                strokeWidth = 2.dp
+            )
+        } else {
             Text("Add $size")
         }
+
+
     }
+
 }
