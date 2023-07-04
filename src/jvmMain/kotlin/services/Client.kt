@@ -13,7 +13,10 @@ class Client(private val client: DynamoDbClient, private val table: String) {
     companion object {
         suspend fun createClient(table: String): Client {
             val client = dynClient()
-            verifyTable(client, table)
+            val exists = verifyTable(client, table)
+            if (!exists) {
+                createTable(client, table)
+            }
             return Client(client, table)
         }
     }
