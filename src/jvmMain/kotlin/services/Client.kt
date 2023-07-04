@@ -2,6 +2,7 @@ package services
 
 import infra.dynamodb.batchPutItemInTable
 import infra.dynamodb.putItemInTable
+import infra.dynamodb.scanPaginated
 import infra.dynamodb.verifyTable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -26,8 +27,10 @@ class Client(private val table: String) {
             async {
                 batchPutItemInTable(it, table)
             }
-        }.chunked(50).forEach {
+        }.chunked(100).forEach {
             it.awaitAll()
         }
     }
+
+    suspend fun scan(): List<TableItem> = scanPaginated(table)
 }

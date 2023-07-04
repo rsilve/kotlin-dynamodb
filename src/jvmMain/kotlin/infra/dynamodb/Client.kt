@@ -2,8 +2,14 @@ package infra.dynamodb
 
 import aws.sdk.kotlin.services.dynamodb.DynamoDbClient
 import aws.sdk.kotlin.services.dynamodb.model.*
+import aws.sdk.kotlin.services.dynamodb.paginators.items
+import aws.sdk.kotlin.services.dynamodb.paginators.scanPaginated
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.toList
 import model.TableItem
+import model.tableItemDecoder
+import model.tableItemEncoder
 
 suspend fun dynClient() = DynamoDbClient.fromEnvironment {
     region = "eu-west-3"
@@ -37,11 +43,7 @@ suspend fun verifyTable(table: String) {
 
 
 suspend fun putItemInTable(tableItem: TableItem, table: String) {
-    val itemValues = mutableMapOf<String, AttributeValue>()
-
-    // Add all content to the table.
-    itemValues["pk"] = AttributeValue.S(tableItem.pk)
-    itemValues["date"] = AttributeValue.S(tableItem.date.toString())
+    val itemValues = tableItemEncoder(tableItem)
 
     val request = PutItemRequest {
         tableName = table
@@ -54,31 +56,11 @@ suspend fun putItemInTable(tableItem: TableItem, table: String) {
 }
 
 
-suspend fun updateTableThroughput(ddb: DynamoDbClient, table: String, read: Long = 5, write: Long = 5) {
-    val describeTable: DescribeTableResponse = ddb.describeTable(DescribeTableRequest {
-        tableName = table
-    })
-    val provisioned = describeTable.table?.provisionedThroughput
-    if (provisioned?.readCapacityUnits != read || provisioned.writeCapacityUnits != write) {
-        ddb.updateTable(UpdateTableRequest {
-            tableName = table
-            provisionedThroughput = ProvisionedThroughput {
-                writeCapacityUnits = write
-                readCapacityUnits = read
-            }
-        })
-        waitForActiveTable(ddb, table)
-    }
-
-}
-
 suspend fun batchPutItemInTable(tableItems: List<TableItem>, table: String) {
 
     val list = tableItems
         .map {
-            val itemValues = mutableMapOf<String, AttributeValue>()
-            itemValues["pk"] = AttributeValue.S(it.pk)
-            itemValues["date"] = AttributeValue.S(it.date.toString())
+            val itemValues = tableItemEncoder(it)
             PutRequest {
                 item = itemValues
             }
@@ -97,3 +79,14 @@ suspend fun batchPutItemInTable(tableItems: List<TableItem>, table: String) {
     }
 }
 
+
+suspend fun scanPaginated(table: String): List<TableItem> {
+    return dynClient().use { ddb ->
+        val flow = ddb.scanPaginated(ScanRequest {
+            tableName = table
+        })
+        flow.items()
+            .map { tableItemDecoder(it) }
+            .toList()
+    }
+}

@@ -8,35 +8,17 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch
-import model.tableItemGenerator
-import services.Client
-import kotlin.system.measureTimeMillis
 
 @Composable
-fun insertBatch(size: Int, client: Client) {
-    val coroutineScope = rememberCoroutineScope()
+fun insertBatch(size: Int, handleInsert: (onComplete: () -> Unit) -> Unit) {
     var running by remember { mutableStateOf(false) }
-
-    fun run(block: suspend () -> Unit) {
-        coroutineScope.launch {
-            running = true
-            block()
-            running = false
-        }
-    }
 
     Button(
         modifier = Modifier.width(180.dp),
         enabled = !running,
         onClick = {
-            run {
-                val timeMillis = measureTimeMillis {
-                    val sequence = generateSequence { tableItemGenerator() }.take(size)
-                    client.batchPut(sequence)
-                }
-                println(timeMillis)
-            }
+            running = true
+            handleInsert {running = false}
         }) {
         if (running) {
             CircularProgressIndicator(

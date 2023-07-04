@@ -24,6 +24,8 @@ kotlin {
             dependencies {
                 implementation("aws.sdk.kotlin:dynamodb:0.18.0-beta")
                 implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
+                implementation("io.github.serpro69:kotlin-faker:1.14.0")
+                implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.5.1")
                 implementation(compose.desktop.currentOs)
             }
         }
