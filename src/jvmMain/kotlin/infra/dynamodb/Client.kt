@@ -2,11 +2,9 @@ package infra.dynamodb
 
 import aws.sdk.kotlin.services.dynamodb.DynamoDbClient
 import aws.sdk.kotlin.services.dynamodb.model.*
-import aws.sdk.kotlin.services.dynamodb.paginators.items
 import aws.sdk.kotlin.services.dynamodb.paginators.scanPaginated
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.toList
 import model.TableItem
 import model.tableItemDecoder
 import model.tableItemEncoder
@@ -15,34 +13,16 @@ suspend fun dynClient() = DynamoDbClient.fromEnvironment {
     region = "eu-west-3"
 }
 
-suspend fun tableInfo(ddb: DynamoDbClient, table: String): DescribeTableResponse {
-    return ddb.describeTable(DescribeTableRequest {
+fun close(client: DynamoDbClient) = client.close()
+
+suspend fun verifyTable(client: DynamoDbClient, table: String): DescribeTableResponse {
+    return client.describeTable(DescribeTableRequest {
         tableName = table
     })
 }
 
-suspend fun waitForActiveTable(ddb: DynamoDbClient, table: String) {
-    var active = false
-    while (!active) {
-        val describeTable: DescribeTableResponse = tableInfo(ddb, table)
-        active = describeTable.table?.tableStatus == TableStatus.Active
-        if (!active) {
-            println("Not active ... wait 1s")
-            delay(1000)
-        } else {
-            println("Active")
-        }
-    }
-}
 
-suspend fun verifyTable(table: String) {
-    return dynClient().use { ddb ->
-        tableInfo(ddb, table)
-    }
-}
-
-
-suspend fun putItemInTable(tableItem: TableItem, table: String) {
+suspend fun putItemInTable(client: DynamoDbClient, tableItem: TableItem, table: String) {
     val itemValues = tableItemEncoder(tableItem)
 
     val request = PutItemRequest {
@@ -50,13 +30,11 @@ suspend fun putItemInTable(tableItem: TableItem, table: String) {
         item = itemValues
     }
 
-    dynClient().use { ddb ->
-        ddb.putItem(request)
-    }
+    client.putItem(request)
 }
 
 
-suspend fun batchPutItemInTable(tableItems: List<TableItem>, table: String) {
+suspend fun batchPutItemInTable(client: DynamoDbClient, tableItems: List<TableItem>, table: String) {
 
     val list = tableItems
         .map {
@@ -74,19 +52,12 @@ suspend fun batchPutItemInTable(tableItems: List<TableItem>, table: String) {
         requestItems = batch
     }
 
-    dynClient().use { ddb ->
-        ddb.batchWriteItem(request)
-    }
+    client.batchWriteItem(request)
 }
 
 
-suspend fun scanPaginated(table: String): List<TableItem> {
-    return dynClient().use { ddb ->
-        val flow = ddb.scanPaginated(ScanRequest {
-            tableName = table
-        })
-        flow.items()
-            .map { tableItemDecoder(it) }
-            .toList()
-    }
+fun scanPaginated(client: DynamoDbClient, table: String): Flow<List<TableItem>?> {
+    return client.scanPaginated(ScanRequest {
+        tableName = table
+    }).map { value: ScanResponse -> value.items?.map { tableItemDecoder(it) } }
 }

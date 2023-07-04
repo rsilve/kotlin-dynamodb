@@ -1,36 +1,38 @@
 package services
 
-import infra.dynamodb.batchPutItemInTable
-import infra.dynamodb.putItemInTable
-import infra.dynamodb.scanPaginated
-import infra.dynamodb.verifyTable
+import aws.sdk.kotlin.services.dynamodb.DynamoDbClient
+import infra.dynamodb.*
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.Flow
 import model.TableItem
 
-class Client(private val table: String) {
+class Client(private val client: DynamoDbClient, private val table: String) {
 
     companion object {
         suspend fun createClient(table: String): Client {
-            verifyTable(table)
-            return Client(table)
+            val client = dynClient()
+            verifyTable(client, table)
+            return Client(client, table)
         }
     }
 
     suspend fun put(item: TableItem) {
-        putItemInTable(item, table)
+        putItemInTable(client, item, table)
     }
 
     suspend fun batchPut(items: Sequence<TableItem>) = coroutineScope {
         items.chunked(25).map {
             async {
-                batchPutItemInTable(it, table)
+                batchPutItemInTable(client, it, table)
             }
         }.chunked(100).forEach {
             it.awaitAll()
         }
     }
 
-    suspend fun scan(): List<TableItem> = scanPaginated(table)
+    fun scan(): Flow<List<TableItem>?> = scanPaginated(client, table)
+
+    fun closeConnection() = close(client)
 }

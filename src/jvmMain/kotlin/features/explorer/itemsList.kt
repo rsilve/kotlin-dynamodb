@@ -30,9 +30,12 @@ fun badge(name: String) {
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
-fun itemsList(list: List<TableItem> = emptyList()) {
+fun itemsList(list: List<TableItem>? = emptyList()) {
+    Row {
+        Text("Count: ${list?.size?:0}")
+    }
     LazyColumn {
-        items(list, key = { it.pk }) { item ->
+        items(list?: emptyList(), key = { it.pk }) { item ->
             ListItem(
                 icon = { badge(item.data.name) },
                 text = {

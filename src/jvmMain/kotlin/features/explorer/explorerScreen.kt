@@ -19,6 +19,7 @@ const val INSERT_BATCH_SIZE = 10000
 @Composable
 fun explorerScreen(client: Client) {
     val coroutineScope = rememberCoroutineScope()
+    val flow = remember { client.scan() }
     var items by remember { mutableStateOf(emptyList<TableItem>()) }
 
     val handleInsertOne: (() -> Unit) -> Unit = { complete ->
@@ -45,7 +46,13 @@ fun explorerScreen(client: Client) {
     val handleScan: (() -> Unit) -> Unit = { complete ->
         coroutineScope.launch {
             val timeMillis = measureTimeMillis {
-                items = client.scan()
+                items = emptyList()
+                flow.collect {
+                    val list = mutableListOf<TableItem>()
+                    list.addAll(items)
+                    list.addAll(it?: emptyList())
+                    items = list
+                }
             }
             println(timeMillis)
             complete()
