@@ -1,11 +1,10 @@
 package model
 
 import io.github.serpro69.kfaker.Faker
-import kotlinx.datetime.Clock
-import kotlinx.datetime.LocalDateTime
+import kotlinx.datetime.*
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
 import java.util.*
+import kotlin.random.Random
 
 val faker = Faker()
 
@@ -18,7 +17,7 @@ data class TableItem(val pk: String, val date: LocalDateTime, val data: Customer
 
 fun tableItemGenerator() = TableItem(
     UUID.randomUUID().toString(),
-    Clock.System.now().toLocalDateTime(TimeZone.UTC),
+    Clock.System.now().plus(Random.nextInt(-20, 20), DateTimeUnit.YEAR, TimeZone.UTC).toLocalDateTime(TimeZone.UTC),
     Customer(
         faker.name.name(),
         Address(

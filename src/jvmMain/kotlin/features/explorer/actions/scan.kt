@@ -6,7 +6,7 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.*
 
 @Composable
-fun scan(handleScan: (onComplete: () -> Unit) -> Unit) {
+fun scan(text: String, handleScan: (onComplete: () -> Unit) -> Unit) {
     var running by remember { mutableStateOf(false) }
 
     Box {
@@ -14,7 +14,7 @@ fun scan(handleScan: (onComplete: () -> Unit) -> Unit) {
             running = true
             handleScan { running = false}
         }) {
-            Text("scan")
+            Text("scan ${text}")
         }
 
     }

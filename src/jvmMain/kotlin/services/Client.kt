@@ -36,6 +36,7 @@ class Client(private val client: DynamoDbClient, private val table: String) {
     }
 
     fun scan(): Flow<List<TableItem>?> = scanPaginated(client, table)
+    fun query(): Flow<List<TableItem>?> = queryPaginated(client, table)
 
     fun closeConnection() = close(client)
 }

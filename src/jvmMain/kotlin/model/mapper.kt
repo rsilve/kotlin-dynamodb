@@ -37,7 +37,7 @@ fun tableItemEncoder(item: TableItem): Map<String, AttributeValue> {
     itemValues["pk"] = AttributeValue.S(item.pk)
     itemValues["date"] = AttributeValue.S(item.date.toString())
     itemValues["data"] = AttributeValue.M(customerEncoder(item.data))
-
+    itemValues["countryCode"] = AttributeValue.S(item.data.address.countryCode)
     return itemValues
 }
 

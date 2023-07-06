@@ -13,7 +13,7 @@ import model.tableItemGenerator
 import services.Client
 import kotlin.system.measureTimeMillis
 
-const val INSERT_BATCH_SIZE = 10000
+const val INSERT_BATCH_SIZE = 100000
 
 
 @Composable
@@ -21,6 +21,7 @@ fun explorerScreen(client: Client) {
     val coroutineScope = rememberCoroutineScope()
     val flow = remember { client.scan() }
     var items by remember { mutableStateOf(emptyList<TableItem>()) }
+    var scanDuration by remember { mutableStateOf(-1L) }
 
     val handleInsertOne: (() -> Unit) -> Unit = { complete ->
         coroutineScope.launch {
@@ -45,6 +46,7 @@ fun explorerScreen(client: Client) {
 
     val handleScan: (() -> Unit) -> Unit = { complete ->
         coroutineScope.launch {
+            scanDuration = -1L
             val timeMillis = measureTimeMillis {
                 items = emptyList()
                 flow.collect {
@@ -54,7 +56,7 @@ fun explorerScreen(client: Client) {
                     items = list
                 }
             }
-            println(timeMillis)
+            scanDuration = timeMillis
             complete()
         }
     }
@@ -66,10 +68,10 @@ fun explorerScreen(client: Client) {
             Box(modifier = Modifier.width(4.dp)) { }
             insertBatch(INSERT_BATCH_SIZE, handleInsertBatch)
             Box(modifier = Modifier.width(4.dp)) { }
-            scan(handleScan)
+            scan("FR", handleScan)
         }
         Row {
-            itemsList(items)
+            itemsList(items, scanDuration)
         }
     }
 
