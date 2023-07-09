@@ -31,25 +31,27 @@ fun badge(name: String) {
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
-fun itemsList(list: List<TableItem>? = emptyList(), scanDuration: Long) {
+fun itemsList(list: List<TableItem>? = emptyList(), scanDuration: Long, readCapacity: Double) {
+    val duration = if (scanDuration < 0) "--" else "${scanDuration}ms"
+    val consumed = if (readCapacity < 0) "--" else "$readCapacity"
     Column {
-        Row {
-            Text("Count: ${list?.size ?: 0}", modifier = Modifier.padding(end = 4.dp))
-            Text("scan duration: ${scanDuration}ms")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Count: ${list?.size ?: 0}")
+            Text("scan duration: $duration")
+            Text("read capacity consumed: $consumed")
         }
         LazyColumn {
-            items(list ?: emptyList(), key = { it.pk }) { item ->
-                val date = item.date.date.toString()
+            items(list ?: emptyList(), key = { it.data.id }) { item ->
                 ListItem(
                     icon = { badge(item.data.name) },
                     text = {
                         Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(item.data.name, modifier = Modifier.padding(end = 8.dp))
-                                Text(item.data.address.city, fontSize = MaterialTheme.typography.body2.fontSize)
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text(item.data.name)
+                                Text(item.clientCode)
                             }
-                            Row(modifier = Modifier.padding(4.dp)) {
-                                Text(date, color = MaterialTheme.colors.secondary, modifier = Modifier.padding(end = 4.dp))
+                            Row(modifier = Modifier.padding(4.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text(item.data.vehicle.fuelType, color = MaterialTheme.colors.secondary)
                                 Text(item.data.address.countryCode, color = MaterialTheme.colors.secondary)
                             }
                         }

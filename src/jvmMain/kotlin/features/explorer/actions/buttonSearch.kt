@@ -6,15 +6,15 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.*
 
 @Composable
-fun scan(text: String, handleScan: (onComplete: () -> Unit) -> Unit) {
+fun buttonSearch(text: String, onClick: (onComplete: () -> Unit) -> Unit) {
     var running by remember { mutableStateOf(false) }
 
     Box {
         Button(enabled = !running, onClick = {
             running = true
-            handleScan { running = false}
+            onClick { running = false}
         }) {
-            Text("scan ${text}")
+            Text(text)
         }
 
     }

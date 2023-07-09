@@ -4,6 +4,7 @@ import aws.sdk.kotlin.services.dynamodb.DynamoDbClient
 import aws.sdk.kotlin.services.dynamodb.model.*
 import aws.sdk.kotlin.services.dynamodb.paginators.queryPaginated
 import aws.sdk.kotlin.services.dynamodb.paginators.scanPaginated
+import aws.sdk.kotlin.services.dynamodb.waiters.waitUntilTableExists
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import model.TableItem
@@ -30,28 +31,24 @@ suspend fun verifyTable(client: DynamoDbClient, table: String): Boolean {
 suspend fun createTable(client: DynamoDbClient, table: String) {
     val attributesDef = listOf(
         AttributeDefinition {
-            attributeName = "pk"
-            attributeType = ScalarAttributeType.S
-        },
-        AttributeDefinition {
-            attributeName = "date"
+            attributeName = "clientCode"
             attributeType = ScalarAttributeType.S
         },
         AttributeDefinition {
             attributeName = "countryCode"
             attributeType = ScalarAttributeType.S
-        },
+        }
     )
     val keySchemaVal = listOf(KeySchemaElement {
-        attributeName = "pk"
+        attributeName = "clientCode"
         keyType = KeyType.Hash
     }, KeySchemaElement {
-        attributeName = "date"
+        attributeName = "countryCode"
         keyType = KeyType.Range
     })
 
     val gsi = listOf(GlobalSecondaryIndex {
-        indexName = "country"
+        indexName = "gsiCountryCode"
         keySchema = listOf(KeySchemaElement {
             attributeName = "countryCode"
             keyType = KeyType.Hash
@@ -61,12 +58,16 @@ suspend fun createTable(client: DynamoDbClient, table: String) {
         }
     })
 
+
     client.createTable(CreateTableRequest {
         tableName = table
         attributeDefinitions = attributesDef
         keySchema = keySchemaVal
         globalSecondaryIndexes = gsi
         billingMode = BillingMode.PayPerRequest
+    })
+    client.waitUntilTableExists(DescribeTableRequest {
+        tableName = table
     })
 }
 
@@ -103,32 +104,66 @@ suspend fun batchPutItemInTable(client: DynamoDbClient, tableItems: List<TableIt
 }
 
 
-fun scanPaginated(client: DynamoDbClient, table: String): Flow<List<TableItem>?> {
-    val values = mutableMapOf<String, AttributeValue>()
-    values[":cc"] = AttributeValue.S("FR")
-
-    return client.scanPaginated(ScanRequest {
-        tableName = table
-        expressionAttributeValues = values
-        filterExpression = "countryCode = :cc"
-
-    }).map { value: ScanResponse -> value.items?.map { tableItemDecoder(it) } }
+fun scanPaginated(
+    filter: Map<String, String>,
+    client: DynamoDbClient,
+    table: String
+): Flow<Pair<List<TableItem>?, ConsumedCapacity?>> {
+    val request = if (filter.isEmpty()) {
+        ScanRequest {
+            tableName = table
+            returnConsumedCapacity = ReturnConsumedCapacity.Total
+        }
+    } else {
+        val filterExpr = filter.map { "begins_with (${it.key}, :${it.key})" }.joinToString(" AND ")
+        val attributesValues = filter.mapKeys { ":${it.key}" }.mapValues { AttributeValue.S(it.value) }
+        ScanRequest {
+            tableName = table
+            expressionAttributeValues = attributesValues
+            filterExpression = filterExpr
+            returnConsumedCapacity = ReturnConsumedCapacity.Total
+        }
+    }
+    return client.scanPaginated(request)
+        .map { value: ScanResponse -> Pair(value.items?.map { tableItemDecoder(it) }, value.consumedCapacity) }
 }
 
 
-fun queryPaginated(client: DynamoDbClient, table: String): Flow<List<TableItem>?> {
-    val values = mutableMapOf<String, AttributeValue>()
-    values[":d"] = AttributeValue.S("2024")
-    values[":cc"] = AttributeValue.S("FR")
-    values[":zero"] = AttributeValue.S("0")
-    val names = mutableMapOf<String, String>()
-    names["#date"] = "date"
+fun queryPaginated(
+    clientCode: String,
+    countryCode: String?,
+    filter: Map<String, String>,
+    client: DynamoDbClient,
+    table: String
+): Flow<Pair<List<TableItem>?, ConsumedCapacity?>> {
 
-    return client.queryPaginated(QueryRequest {
-        tableName = table
-        keyConditionExpression = "#date > :d"
-        filterExpression = "countryCode = :cc"
-        expressionAttributeValues = values
-        expressionAttributeNames = names
-    }).map { value: QueryResponse -> value.items?.map { tableItemDecoder(it) } }
+    val values = mutableMapOf<String, AttributeValue>()
+    values[":clientCode"] = AttributeValue.S(clientCode)
+    var keyExpression = "clientCode = :clientCode"
+    if (countryCode != null) {
+        values[":countryCode"] = AttributeValue.S(countryCode)
+        keyExpression += " AND begins_with (countryCode, :countryCode)"
+    }
+    val request = if (filter.isEmpty()) {
+        QueryRequest {
+            tableName = table
+            keyConditionExpression = keyExpression
+            expressionAttributeValues = values
+            returnConsumedCapacity = ReturnConsumedCapacity.Total
+        }
+    } else {
+        val filterExpr = filter.map { "begins_with (${it.key}, :${it.key})" }.joinToString(" AND ")
+        filter.mapKeys { ":${it.key}" }.mapValues { AttributeValue.S(it.value) }.forEach { values[it.key] = it.value }
+
+        QueryRequest {
+            tableName = table
+            keyConditionExpression = keyExpression
+            filterExpression = filterExpr
+            expressionAttributeValues = values
+            returnConsumedCapacity = ReturnConsumedCapacity.Total
+        }
+    }
+
+    return client.queryPaginated(request)
+        .map { value: QueryResponse -> Pair(value.items?.map { tableItemDecoder(it) }, value.consumedCapacity) }
 }

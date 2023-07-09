@@ -1,7 +1,6 @@
 package model
 
 import aws.sdk.kotlin.services.dynamodb.model.AttributeValue
-import kotlinx.datetime.LocalDateTime
 
 
 fun addressEncoder(address: Address): Map<String, AttributeValue> {
@@ -22,38 +21,118 @@ fun vehicleEncoder(vehicle: Vehicle): Map<String, AttributeValue> {
     return itemValues
 }
 
-fun customerEncoder(customer: Customer): Map<String, AttributeValue> {
+fun jobEncoder(job: Job): Map<String, AttributeValue> {
     val itemValues = mutableMapOf<String, AttributeValue>()
-    itemValues["name"] = AttributeValue.S(customer.name)
-    itemValues["address"] = AttributeValue.M(addressEncoder(customer.address))
-    itemValues["vehicle"] = AttributeValue.M(vehicleEncoder(customer.vehicle))
-    itemValues["quotes"] = AttributeValue.L(customer.quotes.map { AttributeValue.S(it) })
+    itemValues["title"] = AttributeValue.S(job.title)
+    itemValues["employmentType"] = AttributeValue.S(job.employmentType)
+    itemValues["seniority"] = AttributeValue.S(job.seniority)
+    itemValues["position"] = AttributeValue.S(job.position)
+    itemValues["field"] = AttributeValue.S(job.field)
     return itemValues
 }
 
+fun bankEncoder(bank: Bank): Map<String, AttributeValue> {
+    val itemValues = mutableMapOf<String, AttributeValue>()
+    itemValues["name"] = AttributeValue.S(bank.name)
+    itemValues["swiftBic"] = AttributeValue.S(bank.swiftBic)
+    itemValues["iban"] = AttributeValue.S(bank.iban)
+    return itemValues
+}
+
+fun deviceEncoder(device: Device): Map<String, AttributeValue> {
+    val itemValues = mutableMapOf<String, AttributeValue>()
+    itemValues["modelName"] = AttributeValue.S(device.modelName)
+    itemValues["platform"] = AttributeValue.S(device.platform)
+    itemValues["manufacturer"] = AttributeValue.S(device.manufacturer)
+    itemValues["serial"] = AttributeValue.S(device.serial)
+    return itemValues
+}
+
+fun peopleEncoder(people: People): Map<String, AttributeValue> {
+    val itemValues = mutableMapOf<String, AttributeValue>()
+    itemValues["id"] = AttributeValue.S(people.id)
+    itemValues["name"] = AttributeValue.S(people.name)
+    itemValues["address"] = AttributeValue.M(addressEncoder(people.address))
+    itemValues["vehicle"] = AttributeValue.M(vehicleEncoder(people.vehicle))
+    itemValues["quotes"] = AttributeValue.L(people.quotes.map { AttributeValue.S(it) })
+    itemValues["job"] = AttributeValue.M(jobEncoder(people.job))
+    itemValues["bank"] = AttributeValue.M(bankEncoder(people.bank))
+    itemValues["devices"] = AttributeValue.L(people.devices.map { AttributeValue.M(deviceEncoder(it)) })
+
+    return itemValues
+}
 
 fun tableItemEncoder(item: TableItem): Map<String, AttributeValue> {
     val itemValues = mutableMapOf<String, AttributeValue>()
-    itemValues["pk"] = AttributeValue.S(item.pk)
-    itemValues["date"] = AttributeValue.S(item.date.toString())
-    itemValues["data"] = AttributeValue.M(customerEncoder(item.data))
-    itemValues["countryCode"] = AttributeValue.S(item.data.address.countryCode)
+    itemValues["clientCode"] = AttributeValue.S(item.clientCode)
+    itemValues["countryCode"] = AttributeValue.S("${item.data.address.countryCode}#${item.data.id}")
+    itemValues["fuelType"] = AttributeValue.S(item.data.vehicle.fuelType)
+    itemValues["data"] = AttributeValue.M(peopleEncoder(item.data))
     return itemValues
 }
 
-
 fun tableItemDecoder(attr: Map<String, AttributeValue>): TableItem {
-    return TableItem(attr["pk"]!!.asS(), LocalDateTime.parse(attr["date"]!!.asS()), consumerDecoder(attr["data"]!!.asM()))
+    return TableItem(
+        attr["clientCode"]!!.asS(),
+        peopleDecoder(attr["data"]!!.asM())
+    )
 }
 
-fun consumerDecoder(attr: Map<String, AttributeValue>): Customer {
-    return Customer(attr["name"]!!.asS(), addressDecoder(attr["address"]!!.asM()), vehicleDecoder(attr["vehicle"]!!.asM()), attr["quotes"]!!.asL().map { it.asS() })
+fun jobDecoder(attr: Map<String, AttributeValue>): Job {
+    return Job(
+        attr["title"]!!.asS(),
+        attr["employmentType"]!!.asS(),
+        attr["seniority"]!!.asS(),
+        attr["position"]!!.asS(),
+        attr["field"]!!.asS()
+    )
 }
+
+fun bankDecoder(attr: Map<String, AttributeValue>): Bank {
+    return Bank(
+        attr["name"]!!.asS(),
+        attr["swiftBic"]!!.asS(),
+        attr["iban"]!!.asS()
+    )
+}
+
+fun devicesDecoder(attr: Map<String, AttributeValue>): Device {
+    return Device(
+        attr["modelName"]!!.asS(),
+        attr["platform"]!!.asS(),
+        attr["manufacturer"]!!.asS(),
+        attr["serial"]!!.asS()
+    )
+}
+
+fun peopleDecoder(attr: Map<String, AttributeValue>): People {
+    return People(
+        attr["id"]!!.asS(),
+        attr["name"]!!.asS(),
+        addressDecoder(attr["address"]!!.asM()),
+        vehicleDecoder(attr["vehicle"]!!.asM()),
+        attr["quotes"]!!.asL().map { it.asS() },
+        jobDecoder(attr["job"]!!.asM()),
+        bankDecoder(attr["bank"]!!.asM()),
+        attr["devices"]!!.asL().map { devicesDecoder(it.asM()) }
+    )
+}
+
 
 fun vehicleDecoder(attr: Map<String, AttributeValue>): Vehicle {
-    return Vehicle(attr["model"]!!.asS(), attr["fuelType"]!!.asS(), attr["doors"]!!.asN().toInt(), attr["licensePlate"]!!.asS())
+    return Vehicle(
+        attr["model"]!!.asS(),
+        attr["fuelType"]!!.asS(),
+        attr["doors"]!!.asN().toInt(),
+        attr["licensePlate"]!!.asS()
+    )
 }
 
 fun addressDecoder(attr: Map<String, AttributeValue>): Address {
-    return Address(attr["streetAddress"]!!.asS(), attr["city"]!!.asS(), attr["postCode"]!!.asS(), attr["countryCode"]!!.asS())
+    return Address(
+        attr["streetAddress"]!!.asS(),
+        attr["city"]!!.asS(),
+        attr["postCode"]!!.asS(),
+        attr["countryCode"]!!.asS()
+    )
 }

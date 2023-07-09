@@ -1,6 +1,7 @@
 package services
 
 import aws.sdk.kotlin.services.dynamodb.DynamoDbClient
+import aws.sdk.kotlin.services.dynamodb.model.ConsumedCapacity
 import infra.dynamodb.*
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -30,13 +31,19 @@ class Client(private val client: DynamoDbClient, private val table: String) {
             async {
                 batchPutItemInTable(client, it, table)
             }
-        }.chunked(100).forEach {
+        }.chunked(3).forEach {
             it.awaitAll()
         }
     }
 
-    fun scan(): Flow<List<TableItem>?> = scanPaginated(client, table)
-    fun query(): Flow<List<TableItem>?> = queryPaginated(client, table)
+    fun scan(filter: Map<String, String> = emptyMap()): Flow<Pair<List<TableItem>?, ConsumedCapacity?>> =
+        scanPaginated(filter, client, table)
+
+    fun query(
+        clientCode: String,
+        countryCode: String?,
+        filter: Map<String, String> = emptyMap()
+    ): Flow<Pair<List<TableItem>?, ConsumedCapacity?>> = queryPaginated(clientCode, countryCode, filter, client, table)
 
     fun closeConnection() = close(client)
 }

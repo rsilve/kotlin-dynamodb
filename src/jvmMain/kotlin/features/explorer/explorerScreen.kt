@@ -1,14 +1,12 @@
 package features.explorer
 
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import features.explorer.actions.insertBatch
-import features.explorer.actions.scan
 import kotlinx.coroutines.launch
-import model.TableItem
 import model.tableItemGenerator
 import services.Client
 import kotlin.system.measureTimeMillis
@@ -19,9 +17,6 @@ const val INSERT_BATCH_SIZE = 100000
 @Composable
 fun explorerScreen(client: Client) {
     val coroutineScope = rememberCoroutineScope()
-    val flow = remember { client.scan() }
-    var items by remember { mutableStateOf(emptyList<TableItem>()) }
-    var scanDuration by remember { mutableStateOf(-1L) }
 
     val handleInsertOne: (() -> Unit) -> Unit = { complete ->
         coroutineScope.launch {
@@ -44,35 +39,16 @@ fun explorerScreen(client: Client) {
         }
     }
 
-    val handleScan: (() -> Unit) -> Unit = { complete ->
-        coroutineScope.launch {
-            scanDuration = -1L
-            val timeMillis = measureTimeMillis {
-                items = emptyList()
-                flow.collect {
-                    val list = mutableListOf<TableItem>()
-                    list.addAll(items)
-                    list.addAll(it?: emptyList())
-                    items = list
-                }
-            }
-            scanDuration = timeMillis
-            complete()
-        }
-    }
 
     Column(modifier = Modifier.padding(4.dp)) {
-        Row { Text("Hello") }
         Row {
             insertBatch(1, handleInsertOne)
             Box(modifier = Modifier.width(4.dp)) { }
             insertBatch(INSERT_BATCH_SIZE, handleInsertBatch)
             Box(modifier = Modifier.width(4.dp)) { }
-            scan("FR", handleScan)
         }
-        Row {
-            itemsList(items, scanDuration)
-        }
+        examplePanel(client)
+
     }
 
 }
